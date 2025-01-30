@@ -24,8 +24,7 @@
         <div class="card mb-4">
             <div class="card-body">
                 <h5 class="card-title">Vídeo Processado</h5>
-                <video id="mainVideo" controls width="100%" class="rounded"
-                       onerror="handleVideoError(this)">
+                <video id="mainVideo" controls width="100%" class="rounded" type="video/mp4">
                     <source src="{{ url_for('static', filename='alerts/' + process_id|string + '/processed_video.mp4') }}" 
                             type="video/mp4">
                     Seu navegador não suporta a reprodução de vídeos.

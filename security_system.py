@@ -5,6 +5,7 @@ from ultralytics import YOLO
 from typing import Optional, List
 import os
 import argparse
+import subprocess
 
 class SecurityMonitor:
     def __init__(self, model_path: str = 'yolov8n.pt', 
@@ -158,13 +159,27 @@ def process_video(input_path: str, alert_dir: str) -> str:
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
 
-    # Configuração do vídeo de saída
+    # Configuração do FFmpeg
     output_path = os.path.join(alert_dir, "processed_video.mp4")
-    writer = cv2.VideoWriter(output_path, 
-                           cv2.VideoWriter_fourcc(*'mp4v'), 
-                           fps, 
-                           (frame_width, frame_height))
-
+    command = [
+        'ffmpeg',
+        '-y',                    # Sobrescrever arquivo existente
+        '-f', 'rawvideo',        # Formato de entrada: vídeo bruto
+        '-vcodec', 'rawvideo',   # Codec de entrada: raw
+        '-s', f'{frame_width}x{frame_height}',  # Resolução
+        '-pix_fmt', 'bgr24',     # Formato de pixel OpenCV (BGR)
+        '-r', str(fps),          # Taxa de quadros
+        '-i', '-',               # Entrada via pipe
+        '-c:v', 'libx264',       # Codec de saída H.264
+        '-preset', 'fast',       # Balanceamento velocidade/qualidade
+        '-crf', '22',            # Qualidade (0-51, menor=melhor)
+        '-pix_fmt', 'yuv420p',   # Formato compatível com navegadores
+        output_path
+    ]
+    
+    # Inicia o processo FFmpeg
+    writer = subprocess.Popen(command, stdin=subprocess.PIPE)
+    
     try:
         while cap.isOpened():
             success, frame = cap.read()
@@ -193,11 +208,13 @@ def process_video(input_path: str, alert_dir: str) -> str:
                     cv2.putText(annotated_frame, cooldown_text, (text_x, text_y - 40), 
                               cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-            writer.write(annotated_frame)
+            # Escreve o frame processado no FFmpeg
+            writer.stdin.write(annotated_frame.tobytes())
 
     finally:
         cap.release()
-        writer.release()
+        writer.stdin.close()
+        writer.wait()
         print("Processamento concluído. Vídeo salvo em:", output_path)
         
     return output_path

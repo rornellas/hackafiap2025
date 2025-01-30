@@ -3,8 +3,9 @@ numpy==1.23.5  # Versão compatível com Python 3.10 e OpenCV
 # Atualizar versões do PyTorch e Ultralytics
 torch==2.0.1
 ultralytics==8.0.200  # Framework YOLO para detecção de objetos
-opencv-python==4.8.1.78  # Versão mais recente compatível
+opencv-python-headless==4.5.5.64  # Use esta versão se não precisar de GUI 
 
 # web
 flask==2.3.3
 humanize==4.7.0  # Para formatar datas relativas 
+

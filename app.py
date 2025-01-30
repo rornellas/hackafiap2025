@@ -112,5 +112,11 @@ def natural_time_filter(dt):
     """Filtro para formatar datas usando humanize"""
     return naturaltime(dt)
 
+@app.after_request
+def add_headers(response):
+    if response.mimetype == 'video/mp4':
+        response.headers.add('Accept-Ranges', 'bytes')
+    return response
+
 if __name__ == '__main__':
     app.run(debug=True) 
