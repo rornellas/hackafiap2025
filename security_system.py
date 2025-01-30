@@ -3,6 +3,7 @@ import smtplib
 from datetime import datetime
 from ultralytics import YOLO
 from typing import Optional, List
+import os
 
 class SecurityMonitor:
     def __init__(self, model_path: str = 'yolov8n.pt', 
@@ -135,6 +136,10 @@ class AlertSystem:
         self.server.sendmail(self.sender, self.receiver, msg.encode('utf-8'))
 
 def main(video_path: str = 0, output_path: str = 'output.mp4'):
+    # Cria diretório para alertas com timestamp de execução
+    alert_dir = f"alert_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    os.makedirs(alert_dir, exist_ok=True)
+    
     # Configurações
     monitor = SecurityMonitor()
 #    alert_system = AlertSystem(
@@ -161,6 +166,9 @@ def main(video_path: str = 0, output_path: str = 'output.mp4'):
             if not success:
                 break
 
+            # Obtém timestamp do frame atual em milissegundos
+            frame_timestamp = cap.get(cv2.CAP_PROP_POS_MSEC)
+            
             # Processamento do frame
             detections, people = monitor.detect_objects(frame)
             annotated_frame = monitor.draw_annotations(frame.copy(), detections, people)
@@ -170,6 +178,12 @@ def main(video_path: str = 0, output_path: str = 'output.mp4'):
                 if monitor.should_alert():
                     #alert_system.send_alert()
                     monitor.update_alert_time()
+                    
+                    # Salva frame do alerta
+                    timestamp_str = f"{frame_timestamp:.0f}".zfill(10)
+                    alert_filename = os.path.join(alert_dir, f"alert_{timestamp_str}.jpg")
+                    cv2.imwrite(alert_filename, frame)
+                    print(f"Alerta registrado: {alert_filename}")
                 
                 # Adicionar informação de cooldown no frame
                 if monitor.last_alert_time:

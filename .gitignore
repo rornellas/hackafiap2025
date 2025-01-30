@@ -1,1 +1,5 @@
 /venv/
+# Ignorar arquivos de alertas e vídeo de saída
+alert_*/
+output.mp4
+
