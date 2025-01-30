@@ -5,16 +5,19 @@ from ultralytics import YOLO
 from typing import Optional, List
 
 class SecurityMonitor:
-    def __init__(self, model_path: str = 'yolov8n.pt', alert_threshold: float = 0.7,
-                 proximity_padding: float = 0.2, proximity_threshold_ratio: float = 0.3):
+    def __init__(self, model_path: str = 'yolov8n.pt', alert_threshold: float = 0.5,
+                 hand_padding: float = 0.3, hand_threshold_ratio: float = 0.3,
+                 nearby_padding: float = 0.5, nearby_threshold_ratio: float = 0.7):
         self.model = YOLO(model_path)
         self.alert_threshold = alert_threshold
-        self.classes_of_interest = [43, 72]  # COCO classes: 43=knife, 72=scissors
+        self.classes_of_interest = [43, 72]  # COCO: 43=knife, 72=scissors
         self.last_alert_time = None
         
-        # Parâmetros de ajuste fino para detecção de proximidade
-        self.proximity_padding = proximity_padding  # Expansão da bbox da pessoa
-        self.proximity_threshold_ratio = proximity_threshold_ratio  # Fator para ajustar o threshold base para objetos próximos
+        # Parâmetros de zonas de detecção (corrigidos)
+        self.hand_padding = hand_padding
+        self.hand_threshold_ratio = hand_threshold_ratio
+        self.nearby_padding = nearby_padding
+        self.nearby_threshold_ratio = nearby_threshold_ratio
 
     def detect_objects(self, frame):
         """Processa um frame e retorna detecções relevantes"""
@@ -40,10 +43,10 @@ class SecurityMonitor:
                 
                 # 1. Verifica se o centro do objeto está dentro da bbox da pessoa (com margem)
                 expanded_person_bbox = [
-                    person_bbox[0] - (person_bbox[2] - person_bbox[0]) * self.proximity_padding,
-                    person_bbox[1] - (person_bbox[3] - person_bbox[1]) * self.proximity_padding,
-                    person_bbox[2] + (person_bbox[2] - person_bbox[0]) * self.proximity_padding,
-                    person_bbox[3] + (person_bbox[3] - person_bbox[1]) * self.proximity_padding
+                    person_bbox[0] - (person_bbox[2] - person_bbox[0]) * self.hand_padding,
+                    person_bbox[1] - (person_bbox[3] - person_bbox[1]) * self.hand_padding,
+                    person_bbox[2] + (person_bbox[2] - person_bbox[0]) * self.hand_padding,
+                    person_bbox[3] + (person_bbox[3] - person_bbox[1]) * self.hand_padding
                 ]
                 
                 # Verifica se o centro do objeto está dentro da área expandida da pessoa
@@ -51,7 +54,7 @@ class SecurityMonitor:
                     expanded_person_bbox[1] < obj_center[1] < expanded_person_bbox[3]):
                     
                     # 2. Threshold dinâmico baseado na proximidade
-                    proximity_threshold = self.alert_threshold * self.proximity_threshold_ratio
+                    proximity_threshold = self.alert_threshold * self.hand_threshold_ratio
                     
                     if obj_conf > proximity_threshold:
                         relevant_objects.append(obj)
@@ -63,7 +66,9 @@ class SecurityMonitor:
         """Desenha bounding boxes e labels no frame"""
         for obj in detections:
             box = obj.xyxy[0].cpu().numpy()
-            label = f"{self.model.names[int(obj.cls)]} {obj.conf:.2f}"
+            # Converte o tensor para float antes de formatar
+            conf = obj.conf.item()
+            label = f"{self.model.names[int(obj.cls)]} {conf:.2f}"
             color = (0, 0, 255)  # Vermelho para alertas
             cv2.rectangle(frame, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), color, 2)
             cv2.putText(frame, label, (int(box[0]), int(box[1]-10)), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
@@ -148,8 +153,6 @@ def main(video_path: str = 0, output_path: str = 'output.mp4'):
             # Processamento do frame
             detections, people = monitor.detect_objects(frame)
             annotated_frame = monitor.draw_annotations(frame.copy(), detections, people)
-
-            print(detections)
 
             # Sistema de alerta
             if detections:
