@@ -24,10 +24,13 @@
         <div class="card mb-4">
             <div class="card-body">
                 <h5 class="card-title">Vídeo Processado</h5>
-                <video id="mainVideo" controls width="100%" class="rounded">
-                    <source src="/static/alerts/{{ process_id }}/processed_video.mp4" type="video/mp4">
+                <video id="mainVideo" controls width="100%" class="rounded"
+                       onerror="handleVideoError(this)">
+                    <source src="{{ url_for('static', filename='alerts/' + process_id|string + '/processed_video.mp4') }}" 
+                            type="video/mp4">
                     Seu navegador não suporta a reprodução de vídeos.
                 </video>
+                <div id="videoError" class="alert alert-danger mt-2 d-none"></div>
             </div>
         </div>
         {% endif %}
@@ -64,6 +67,44 @@
         video.play();
         video.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+
+    function handleVideoError(videoElement) {
+        const errorDiv = document.getElementById('videoError');
+        errorDiv.classList.remove('d-none');
+        
+        const error = videoElement.error;
+        let message = 'Erro ao carregar o vídeo. Tente atualizar a página.';
+
+        if (error) {
+            switch(error.code) {
+                case MediaError.MEDIA_ERR_ABORTED:
+                    message = 'Carregamento do vídeo interrompido.';
+                    break;
+                case MediaError.MEDIA_ERR_NETWORK:
+                    message = 'Erro de rede ao carregar o vídeo.';
+                    break;
+                case MediaError.MEDIA_ERR_DECODE:
+                    message = 'Erro na decodificação do vídeo.';
+                    break;
+                case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                    message = 'Formato de vídeo não suportado.';
+                    break;
+            }
+        }
+        
+        errorDiv.textContent = message;
+        console.error('Erro no vídeo:', error);
+    }
+
+    // Garante que o vídeo está no DOM antes de manipular
+    document.addEventListener('DOMContentLoaded', function() {
+        const video = document.getElementById('mainVideo');
+        if(video) {
+            video.addEventListener('error', function() {
+                handleVideoError(this);
+            });
+        }
+    });
     </script>
     {% endif %}
 </body>
