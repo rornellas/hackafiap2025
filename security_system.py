@@ -5,16 +5,18 @@ from ultralytics import YOLO
 from typing import Optional, List
 
 class SecurityMonitor:
-    def __init__(self, model_path: str = 'yolov8n.pt', alert_threshold: float = 0.4,
-                 min_iou: float = 0.2, iou_threshold_ratio: float = 0.5):
+    def __init__(self, model_path: str = 'yolov8n.pt', 
+                 alert_threshold: float = 0.25,  # Reduzido de 0.4 para 0.25
+                 min_iou: float = 0.1,          # Reduzido de 0.2 para 0.1
+                 iou_threshold_ratio: float = 0.8):  # Aumentado de 0.5 para 0.8
         self.model = YOLO(model_path)
         self.alert_threshold = alert_threshold
-        self.classes_of_interest = [43, 72]  # COCO: 43=knife, 72=scissors
+        self.classes_of_interest = [43, 76]  # COCO: 43=knife, 76=scissors
         self.last_alert_time = None
         
-        # Parâmetros de sobreposição
-        self.min_iou = min_iou  # Mínimo de 20% de sobreposição
-        self.iou_threshold_ratio = iou_threshold_ratio  # Redução do threshold para objetos sobrepostos
+        # Parâmetros de sobreposição mais sensíveis
+        self.min_iou = min_iou  # Aceita 10% de sobreposição
+        self.iou_threshold_ratio = iou_threshold_ratio  # Maior redução do threshold quando há sobreposição
 
     def detect_objects(self, frame):
         """Detecta objetos cortantes sobrepostos com pessoas"""
@@ -35,10 +37,11 @@ class SecurityMonitor:
                 # Calcula IOU (Intersection over Union)
                 iou = self._calculate_iou(obj_bbox, person_bbox)
                 
-                # Threshold dinâmico baseado na sobreposição
+                # Threshold mais dinâmico baseado na sobreposição
                 dynamic_threshold = self.alert_threshold * (1 - self.iou_threshold_ratio * iou)
                 
-                if iou > self.min_iou and obj_conf > dynamic_threshold:
+                # Condição mais permissiva
+                if (iou > self.min_iou and obj_conf > dynamic_threshold) or obj_conf > self.alert_threshold:
                     relevant_objects.append(obj)
                     break
 
