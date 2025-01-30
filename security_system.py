@@ -203,15 +203,16 @@ def process_video(input_path: str, alert_dir: str) -> str:
     return output_path
 
 def main():
-    parser = argparse.ArgumentParser(description='Sistema de monitoramento de segurança')
-    parser.add_argument('--input', type=str, required=True, help='Caminho do vídeo de entrada ou índice da webcam')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', type=str, required=True)
+    parser.add_argument('--alert_dir', type=str, required=True)
     args = parser.parse_args()
     
-    alert_dir = f"alert_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-
+    # Garante que o diretório existe
+    os.makedirs(args.alert_dir, exist_ok=True)
+    
     # Processa o vídeo
-    output_path = process_video(args.input, alert_dir)
-    print(f"Vídeo processado salvo em: {output_path}")
+    process_video(args.input, args.alert_dir)
 
 if __name__ == "__main__":
     main()
