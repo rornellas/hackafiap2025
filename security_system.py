@@ -6,63 +6,73 @@ from typing import Optional, List
 
 class SecurityMonitor:
     def __init__(self, model_path: str = 'yolov8n.pt', 
-                 alert_threshold: float = 0.25,  # Reduzido de 0.4 para 0.25
-                 min_iou: float = 0.1,          # Reduzido de 0.2 para 0.1
-                 iou_threshold_ratio: float = 0.8):  # Aumentado de 0.5 para 0.8
-        self.model = YOLO(model_path)
+                 alert_threshold: float = 0.25,  # Limiar de confiança ajustado para maior sensibilidade
+                 min_iou: float = 0.1,          # Mínima sobreposição aceita (10% da área)
+                 iou_threshold_ratio: float = 0.8):
+        self.model = YOLO(model_path)  # Carrega o modelo YOLOv8 pré-treinado
+        self.classes_of_interest = [43, 76]  # IDs do COCO dataset para facas e tesouras
         self.alert_threshold = alert_threshold
-        self.classes_of_interest = [43, 76]  # COCO: 43=knife, 76=scissors
         self.last_alert_time = None
         
-        # Parâmetros de sobreposição mais sensíveis
-        self.min_iou = min_iou  # Aceita 10% de sobreposição
-        self.iou_threshold_ratio = iou_threshold_ratio  # Maior redução do threshold quando há sobreposição
+        # Parâmetros ajustados para balancear sensibilidade e falsos positivos
+        self.min_iou = min_iou
+        self.iou_threshold_ratio = iou_threshold_ratio
 
     def detect_objects(self, frame):
-        """Detecta objetos cortantes sobrepostos com pessoas"""
+        """Lógica principal de detecção:
+        1. Executa inferência do YOLO
+        2. Separta detecções em pessoas e objetos de interesse
+        3. Verifica sobreposições usando IOU dinâmico
+        4. Aplica threshold adaptativo baseado na sobreposição"""
+        # Processamento otimizado com suppressão de logs (verbose=False)
         results = self.model(frame, verbose=False)[0]
         
-        people = [box for box in results.boxes if int(box.cls) == 0]
+        # Filtragem eficiente usando list comprehensions
+        people = [box for box in results.boxes if int(box.cls) == 0]  # Classe 0 = pessoas no COCO
         objects = [box for box in results.boxes if int(box.cls) in self.classes_of_interest]
         
         relevant_objects = []
         
+        # Lógica de sobreposição com threshold dinâmico
         for obj in objects:
-            obj_conf = obj.conf.item()
-            obj_bbox = obj.xyxy[0].cpu().numpy()
-            
+            obj_conf = obj.conf.item()  # Confiança da detecção do objeto
+            # Cálculo de IOU para cada par pessoa-objeto
             for person in people:
-                person_bbox = person.xyxy[0].cpu().numpy()
-                
-                # Calcula IOU (Intersection over Union)
-                iou = self._calculate_iou(obj_bbox, person_bbox)
-                
-                # Threshold mais dinâmico baseado na sobreposição
+                iou = self._calculate_iou(obj.xyxy[0].cpu().numpy(), 
+                                        person.xyxy[0].cpu().numpy())
+                # Threshold reduz proporcionalmente à sobreposição
                 dynamic_threshold = self.alert_threshold * (1 - self.iou_threshold_ratio * iou)
                 
-                # Condição mais permissiva
+                # Condição combinada de sobreposição e confiança
                 if (iou > self.min_iou and obj_conf > dynamic_threshold) or obj_conf > self.alert_threshold:
                     relevant_objects.append(obj)
-                    break
+                    break  # Otimização: para ao encontrar primeira sobreposição válida
 
         return relevant_objects, people
 
     def _calculate_iou(self, box1, box2):
-        """Calcula a porcentagem de sobreposição entre duas bounding boxes"""
-        # Coordenadas da interseção
+        """Cálculo preciso de Intersection over Union:
+        1. Determina coordenadas da área de interseção
+        2. Calcula áreas individual e interseção
+        3. Retorna razão interseção/união para medir sobreposição"""
+        # Implementação otimizada sem uso de bibliotecas externas
         x_left = max(box1[0], box2[0])
         y_top = max(box1[1], box2[1])
         x_right = min(box1[2], box2[2])
         y_bottom = min(box1[3], box2[3])
         
+        # Verifica se há interseção válida
         if x_right < x_left or y_bottom < y_top:
             return 0.0
         
+        # Cálculo das áreas usando operações vetorizadas
         intersection_area = (x_right - x_left) * (y_bottom - y_top)
         box1_area = (box1[2] - box1[0]) * (box1[3] - box1[1])
         box2_area = (box2[2] - box2[0]) * (box2[3] - box2[1])
         
-        return intersection_area / (box1_area + box2_area - intersection_area)
+        # Prevenção contra divisão por zero
+        union_area = box1_area + box2_area - intersection_area
+        return intersection_area / union_area if union_area > 0 else 0.0
 
     def draw_annotations(self, frame, detections, people):
         """Destaca sobreposições pessoa-objeto"""
@@ -95,7 +105,11 @@ class AlertSystem:
         self.server.login(self.sender, self.password)
 
     def send_alert(self, frame: Optional[bytes] = None):
-        """Envia alerta por e-mail com timestamp"""
+        """Sistema de notificação por e-mail:
+        - Usa protocolo SMTP com TLS
+        - Inclui timestamp preciso
+        - Mensagem formatada para sistemas de monitoramento
+        - Pode ser extendido para incluir anexos de imagem"""
         subject = "ALERTA: Objeto cortante detectado!"
         body = f"""\
         ALERTA DE SEGURANÇA
@@ -103,7 +117,6 @@ class AlertSystem:
         Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         Detecção confirmada pelo sistema VisionGuard.
         """
-        
         msg = f'Subject: {subject}\n\n{body}'
         self.server.sendmail(self.sender, self.receiver, msg.encode('utf-8'))
 
