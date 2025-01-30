@@ -4,6 +4,7 @@ from datetime import datetime
 from ultralytics import YOLO
 from typing import Optional, List
 import os
+import argparse
 
 class SecurityMonitor:
     def __init__(self, model_path: str = 'yolov8n.pt', 
@@ -91,7 +92,7 @@ class SecurityMonitor:
             label = f"{self.model.names[int(obj.cls)]} {conf:.2f}"
             color = (0, 0, 255) if conf > self.alert_threshold else (0, 255, 255)
             cv2.rectangle(frame, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), color, 2)
-            cv2.putText(frame, label, (int(box[0]), int(box[1]-10)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+            cv2.putText(frame, label, (int(box[0]), int(box[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
         
         return frame
 
@@ -135,26 +136,30 @@ class AlertSystem:
         msg = f'Subject: {subject}\n\n{body}'
         self.server.sendmail(self.sender, self.receiver, msg.encode('utf-8'))
 
-def main(video_path: str = 0, output_path: str = 'output.mp4'):
-    # Cria diretório para alertas com timestamp de execução
-    alert_dir = f"alert_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+def process_video(input_path: str, alert_dir: str) -> str:
+    """
+    Processa um vídeo para detecção de objetos perigosos.
+    
+    Args:
+        input_path: Caminho do vídeo de entrada
+        alert_dir: Diretório para salvar os alertas
+        
+    Returns:
+        str: Caminho do vídeo processado
+    """
+    # Garante que o diretório existe
     os.makedirs(alert_dir, exist_ok=True)
     
     # Configurações
     monitor = SecurityMonitor()
-#    alert_system = AlertSystem(
-#        sender_email="seu_email@gmail.com",
-#        sender_password="sua_senha_app",  # Usar senha de app do Google
-#        receiver_email="central@seguranca.com"
-#    )
-#    alert_system.connect()
-
-    cap = cv2.VideoCapture(video_path)
+    
+    cap = cv2.VideoCapture(input_path)
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
 
     # Configuração do vídeo de saída
+    output_path = os.path.join(alert_dir, "processed_video.mp4")
     writer = cv2.VideoWriter(output_path, 
                            cv2.VideoWriter_fourcc(*'mp4v'), 
                            fps, 
@@ -166,26 +171,20 @@ def main(video_path: str = 0, output_path: str = 'output.mp4'):
             if not success:
                 break
 
-            # Obtém timestamp do frame atual em milissegundos
             frame_timestamp = cap.get(cv2.CAP_PROP_POS_MSEC)
             
-            # Processamento do frame
             detections, people = monitor.detect_objects(frame)
             annotated_frame = monitor.draw_annotations(frame.copy(), detections, people)
 
-            # Sistema de alerta
             if detections:
                 if monitor.should_alert():
-                    #alert_system.send_alert()
                     monitor.update_alert_time()
                     
-                    # Salva frame do alerta
                     timestamp_str = f"{frame_timestamp:.0f}".zfill(10)
                     alert_filename = os.path.join(alert_dir, f"alert_{timestamp_str}.jpg")
                     cv2.imwrite(alert_filename, frame)
                     print(f"Alerta registrado: {alert_filename}")
                 
-                # Adicionar informação de cooldown no frame
                 if monitor.last_alert_time:
                     cooldown_left = monitor.alert_cooldown - (datetime.now() - monitor.last_alert_time).total_seconds()
                     cooldown_text = f"Cooldown: {max(0, int(cooldown_left))}s"
@@ -199,10 +198,20 @@ def main(video_path: str = 0, output_path: str = 'output.mp4'):
     finally:
         cap.release()
         writer.release()
-        #alert_system.server.quit()
         print("Processamento concluído. Vídeo salvo em:", output_path)
+        
+    return output_path
+
+def main():
+    parser = argparse.ArgumentParser(description='Sistema de monitoramento de segurança')
+    parser.add_argument('--input', type=str, required=True, help='Caminho do vídeo de entrada ou índice da webcam')
+    args = parser.parse_args()
+    
+    alert_dir = f"alert_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+    # Processa o vídeo
+    output_path = process_video(args.input, alert_dir)
+    print(f"Vídeo processado salvo em: {output_path}")
 
 if __name__ == "__main__":
-    # Para webcam: main(video_path=0)
-    # Para arquivo: main(video_path="input.mp4")
-    main(video_path="/home/rodrigo/Downloads/teste-hacka.mp4")
+    main()

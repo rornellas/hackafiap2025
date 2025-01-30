@@ -5,5 +5,7 @@ torch==2.0.1
 ultralytics==8.0.200  # Framework YOLO para detecção de objetos
 opencv-python==4.8.1.78  # Versão mais recente compatível
 
+flask==2.3.3
+
 # Dependência opcional para ambientes headless (sem interface gráfica)
 # opencv-python-headless==4.5.5.64  # Use esta versão se não precisar de GUI 
