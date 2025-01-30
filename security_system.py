@@ -8,7 +8,8 @@ class SecurityMonitor:
     def __init__(self, model_path: str = 'yolov8n.pt', 
                  alert_threshold: float = 0.25,  # Limiar de confiança ajustado para maior sensibilidade
                  min_iou: float = 0.1,          # Mínima sobreposição aceita (10% da área)
-                 iou_threshold_ratio: float = 0.8):
+                 iou_threshold_ratio: float = 0.8,
+                 alert_cooldown: int = 5):  # Novo parâmetro: cooldown em segundos
         self.model = YOLO(model_path)  # Carrega o modelo YOLOv8 pré-treinado
         self.classes_of_interest = [43, 76]  # IDs do COCO dataset para facas e tesouras
         self.alert_threshold = alert_threshold
@@ -17,6 +18,7 @@ class SecurityMonitor:
         # Parâmetros ajustados para balancear sensibilidade e falsos positivos
         self.min_iou = min_iou
         self.iou_threshold_ratio = iou_threshold_ratio
+        self.alert_cooldown = alert_cooldown
 
     def detect_objects(self, frame):
         """Lógica principal de detecção:
@@ -92,6 +94,18 @@ class SecurityMonitor:
         
         return frame
 
+    def should_alert(self) -> bool:
+        """Verifica se pode enviar alerta baseado no cooldown"""
+        if not self.last_alert_time:
+            return True
+            
+        elapsed = (datetime.now() - self.last_alert_time).total_seconds()
+        return elapsed >= self.alert_cooldown
+
+    def update_alert_time(self):
+        """Atualiza o timestamp do último alerta"""
+        self.last_alert_time = datetime.now()
+
 class AlertSystem:
     def __init__(self, sender_email: str, sender_password: str, receiver_email: str):
         self.sender = sender_email
@@ -153,14 +167,18 @@ def main(video_path: str = 0, output_path: str = 'output.mp4'):
 
             # Sistema de alerta
             if detections:
-                #alert_system.send_alert()
-                # Posicionamento no canto inferior direito
-                text = "ALERTA ATIVADO!"
-                text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 3)[0]
-                text_x = frame_width - text_size[0] - 40  # 40px da borda direita
-                text_y = frame_height - 40  # 40px da borda inferior
-                cv2.putText(annotated_frame, text, (text_x, text_y), 
-                          cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3, cv2.LINE_AA)
+                if monitor.should_alert():
+                    #alert_system.send_alert()
+                    monitor.update_alert_time()
+                
+                # Adicionar informação de cooldown no frame
+                if monitor.last_alert_time:
+                    cooldown_left = monitor.alert_cooldown - (datetime.now() - monitor.last_alert_time).total_seconds()
+                    cooldown_text = f"Cooldown: {max(0, int(cooldown_left))}s"
+                    text_x = frame_width - cv2.getTextSize(cooldown_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0][0] - 40
+                    text_y = frame_height - 40
+                    cv2.putText(annotated_frame, cooldown_text, (text_x, text_y - 40), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
             writer.write(annotated_frame)
 
