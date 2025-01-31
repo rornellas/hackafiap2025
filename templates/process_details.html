@@ -67,11 +67,11 @@
         if(video.readyState < 2) {
             video.addEventListener('loadedmetadata', () => {
                 video.currentTime = time;
-                video.play().catch(error => console.log('Erro ao reproduzir:', error));
+                video.pause();
             });
         } else {
             video.currentTime = time;
-            video.play().catch(error => console.log('Erro ao reproduzir:', error));
+            video.pause();
         }
         
         // Scroll suave melhorado
