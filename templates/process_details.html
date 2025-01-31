@@ -62,9 +62,24 @@
     <script>
     function seekVideo(time) {
         const video = document.getElementById('mainVideo');
-        video.currentTime = time;
-        video.play();
-        video.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        // Garante que o vídeo está pronto para seek
+        if(video.readyState < 2) {
+            video.addEventListener('loadedmetadata', () => {
+                video.currentTime = time;
+                video.play().catch(error => console.log('Erro ao reproduzir:', error));
+            });
+        } else {
+            video.currentTime = time;
+            video.play().catch(error => console.log('Erro ao reproduzir:', error));
+        }
+        
+        // Scroll suave melhorado
+        video.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+        });
     }
 
     function handleVideoError(videoElement) {

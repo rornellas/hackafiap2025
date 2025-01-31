@@ -89,14 +89,20 @@ def process_details(process_id):
     alerts = []
     for f in os.listdir(process_dir):
         if f.startswith('alert_') and f.endswith('.jpg'):
-            timestamp_ms = int(f.split('_')[1].split('.')[0])
-            minutes = timestamp_ms // 60000
-            seconds = (timestamp_ms % 60000) // 1000
-            milliseconds = timestamp_ms % 1000
+            # Extrai o timestamp do nome do arquivo
+            timestamp_str = f.split('_')[1].split('.')[0]
+            
+            # Garante a conversão correta para float
+            try:
+                timestamp_ms = float(timestamp_str)
+            except ValueError:
+                continue
+            
+            # Calcula o tempo em segundos com precisão decimal
             alerts.append({
                 'filename': f,
-                'timestamp': f"{minutes:02d}:{seconds:02d}.{milliseconds:03d}",
-                'video_time': timestamp_ms / 1000
+                'timestamp': f"{int(timestamp_ms//60000):02d}:{int((timestamp_ms%60000)//1000):02d}.{int(timestamp_ms%1000):03d}",
+                'video_time': timestamp_ms / 1000.0  # Mantém precisão decimal
             })
     
     # Ordena por timestamp
