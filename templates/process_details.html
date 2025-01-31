@@ -20,39 +20,52 @@
             <a href="/process" class="btn btn-outline-secondary">Voltar</a>
         </div>
 
-        {% if video_exists %}
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Vídeo Processado</h5>
-                <video id="mainVideo" controls width="100%" class="rounded" type="video/mp4">
-                    <source src="{{ url_for('static', filename='alerts/' + process_id|string + '/processed_video.mp4') }}" 
-                            type="video/mp4">
-                    Seu navegador não suporta a reprodução de vídeos.
-                </video>
-                <div id="videoError" class="alert alert-danger mt-2 d-none"></div>
+        <div class="row g-4">
+            <!-- Seção do Vídeo -->
+            <div class="col-md-8">
+                {% if video_exists %}
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Vídeo Processado</h5>
+                        <div class="ratio ratio-16x9">
+                            <video id="mainVideo" controls class="rounded">
+                                <source src="{{ url_for('static', filename='alerts/' + process_id|string + '/processed_video.mp4') }}" 
+                                        type="video/mp4">
+                                Seu navegador não suporta a reprodução de vídeos.
+                            </video>
+                        </div>
+                        <div id="videoError" class="alert alert-danger mt-2 d-none"></div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
-        </div>
-        {% endif %}
 
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Alertas Registrados ({{ alerts|length }})</h5>
-                <div class="row row-cols-1 row-cols-md-3 g-4">
-                    {% for alert in alerts %}
-                    <div class="col">
-                        <div class="card h-100 alert-card" onclick="seekVideo({{ alert.video_time }})">
-                            <img src="/static/alerts/{{ process_id }}/{{ alert.filename }}" 
-                                 class="card-img-top" 
-                                 alt="Alerta em {{ alert.timestamp }}">
-                            <div class="card-body">
-                                <h6 class="card-subtitle mb-2 text-muted">{{ alert.timestamp }}</h6>
-                                <button class="btn btn-sm btn-outline-primary w-100">
-                                    Ver Momento
-                                </button>
+            <!-- Seção de Alertas com Scroll -->
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body p-0 d-flex flex-column">
+                        <h5 class="card-title p-3 border-bottom">Alertas Registrados ({{ alerts|length }})</h5>
+                        <div class="alert-list flex-grow-1 overflow-auto" style="max-height: 70vh;">
+                            <div class="row row-cols-1 g-2 p-2">
+                                {% for alert in alerts %}
+                                <div class="col">
+                                    <div class="card h-100 alert-card" onclick="seekVideo({{ alert.video_time }})">
+                                        <img src="/static/alerts/{{ process_id }}/{{ alert.filename }}" 
+                                             class="card-img-top" 
+                                             alt="Alerta em {{ alert.timestamp }}"
+                                             style="object-fit: cover; height: 150px;">
+                                        <div class="card-body">
+                                            <h6 class="card-subtitle mb-2 text-muted">{{ alert.timestamp }}</h6>
+                                            <button class="btn btn-sm btn-outline-primary w-100">
+                                                Ver Momento
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
-                    {% endfor %}
                 </div>
             </div>
         </div>
