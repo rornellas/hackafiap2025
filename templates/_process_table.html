@@ -1,0 +1,33 @@
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Data/Hora</th>
+            <th>Alertas</th>
+            <th>Status</th>
+            <th>Ações</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for process in processes %}
+        <tr>
+            <td>
+                {{ process.created_at.strftime('%d/%m/%Y %H:%M:%S') }}<br>
+                <small class="text-muted">{{ process.created_at | naturaltime }}</small>
+            </td>
+            <td>{{ process.alerts_count }} detecções</td>
+            <td>
+                {% if process.status == 'completed' %}
+                <span class="badge bg-success">Concluído</span>
+                {% else %}
+                <span class="badge bg-warning">Processando</span>
+                {% endif %}
+            </td>
+            <td>
+                <a href="/process/{{ process.id }}" class="btn btn-sm btn-primary">
+                    Detalhes
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table> 
